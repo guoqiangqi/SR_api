@@ -1,0 +1,73 @@
+#include <opencv2/opencv.hpp>
+#include "SR_api.h"
+#include <string>
+#include <jni.h>
+
+bool imageToBinFile(cv::Mat,std::string);
+int srmain(){
+    bool tag_result;
+//    std::string prototxt="/storage/emulated/0/SR_api/VGG_VOC0712_SSD_300.prototxt";
+//    std::string caffemodel="/storage/emulated/0/SR_api/VGG_VOC0712_SSD_300.caffemodel";
+    std::string prototxt="/storage/emulated/0/SR_api/TCL_SR.prototxt";
+    std::string caffemodel="/storage/emulated/0/SR_api/TCL_SR.caffemodel";
+    SRAPI api;
+
+    api.addNetwork(prototxt.c_str(),caffemodel.c_str());
+//    cv::Mat image = cv::imread("/storage/emulated/0/SR_api/Example5_original.png");
+//    imageToBinFile(image,"/storage/emulated/0/SR_api/result0.txt");
+    cv::Mat image = cv::imread("/storage/emulated/0/SR_api/test.png",0);
+    cv::resize(image,image, cv::Size(224,224));
+    cv::Mat image_f;
+    image.convertTo(image_f, CV_32FC1, 1/255.0);
+    tag_result=imageToBinFile(image_f,"/storage/emulated/0/SR_api/result0.txt");
+    cv::Mat out = api.run(image_f, image.cols, image.rows, caffemodel.c_str());
+//    return 1;
+    cv::imwrite("/storage/emulated/0/SR_api/result.png",out);
+    tag_result=imageToBinFile(out,"/storage/emulated/0/SR_api/result1.txt");
+    return 1;
+}
+
+bool imageToBinFile(cv::Mat image, std::string filename)
+{
+    if (image.empty()) return false;
+    const char *filenamechar = filename.c_str();
+    FILE *fpw = fopen(filenamechar, "wb");
+    if (fpw == NULL)
+    {
+        fclose(fpw);
+        return false;
+    }
+    int channl = image.channels();
+    int rows = image.rows;
+    int cols = image.cols;
+
+    fwrite(&channl, sizeof(char), 4, fpw);
+    fwrite(&rows, sizeof(char), 4, fpw);
+    fwrite(&cols  , sizeof(char), 4, fpw);
+    char* dp = (char*)image.data;
+    if (channl == 3)
+    {
+        for (int i = 0; i < rows*cols*4; i++)
+        {
+            fwrite(&dp[i * 3], sizeof(char), 1, fpw);
+            fwrite(&dp[i * 3 + 1], sizeof(char), 1, fpw);
+            fwrite(&dp[i * 3 + 2], sizeof(char), 1, fpw);
+        }
+    }
+    else if (channl == 1)
+    {
+        for (int i = 0; i < rows*cols*4; i++)
+        {
+            fwrite(&dp[i], sizeof(char), 1, fpw);
+        }
+    }
+    fclose(fpw);
+    return true;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_tcl_animoji_1cpp_MainActivity_srmainFromJNI(JNIEnv *env, jobject instance) {
+
+    return srmain();
+}
